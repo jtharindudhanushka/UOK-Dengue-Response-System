@@ -48,11 +48,15 @@ INSERT INTO institutions (slug, name, map_center, map_zoom) VALUES
   ('uok', 'University of Kelaniya', ST_GeogFromText('POINT(79.9001 7.0018)'), 15)
 ON CONFLICT (slug) DO NOTHING;
 
+CREATE OR REPLACE FUNCTION get_default_institution_id() RETURNS UUID AS $$
+  SELECT id FROM institutions WHERE slug = 'uok' LIMIT 1;
+$$ LANGUAGE SQL STABLE;
+
 -- ── PROFILES TABLE ───────────────────────────────────────────
 -- Extends Supabase Auth users with roles
 CREATE TABLE IF NOT EXISTS profiles (
   id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   role           user_role NOT NULL DEFAULT 'response_team',
   display_name   TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -61,7 +65,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- ── REPORTS TABLE (Breeding Sites) ───────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  institution_id        UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id        UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   location              GEOGRAPHY(POINT, 4326) NOT NULL,
   location_obfuscated   GEOGRAPHY(POINT, 4326) GENERATED ALWAYS AS (
     -- Snap to ~100m grid for public display
@@ -97,7 +101,7 @@ CREATE INDEX IF NOT EXISTS reports_institution_idx ON reports (institution_id);
 -- ── CASES TABLE (Human Dengue Cases — restricted) ────────────
 CREATE TABLE IF NOT EXISTS cases (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   location       GEOGRAPHY(POINT, 4326) NOT NULL,
   student_name   TEXT NOT NULL,
   student_number TEXT NOT NULL,
