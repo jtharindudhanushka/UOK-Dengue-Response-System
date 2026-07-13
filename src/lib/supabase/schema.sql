@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 -- Index for spatial queries
-CREATE INDEX IF NOT EXISTS reports_location_idx ON reports USING GIST (location::geometry);
+CREATE INDEX IF NOT EXISTS reports_location_idx ON reports USING GIST ((location::geometry));
 CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status);
 CREATE INDEX IF NOT EXISTS reports_cluster_idx ON reports (cluster_id);
 CREATE INDEX IF NOT EXISTS reports_institution_idx ON reports (institution_id);
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS cases (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS cases_location_idx ON cases USING GIST (location::geometry);
+CREATE INDEX IF NOT EXISTS cases_location_idx ON cases USING GIST ((location::geometry));
 
 -- ── CLUSTER CACHE TABLE ───────────────────────────────────────
 -- Stores results of ST_ClusterDBSCAN for fast reads
