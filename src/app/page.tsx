@@ -186,6 +186,19 @@ export default function PublicMapPage() {
           {/* ── Custom Map Switcher UI (Top Left, under Zoom Controls) ── */}
           <div style={{ position: "absolute", top: "5.5rem", left: "0.65rem", zIndex: 500, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
             <button
+              onClick={handleLocateMe}
+              style={{
+                width: "36px", height: "36px", borderRadius: "var(--rounded-md)",
+                background: "var(--color-surface-card)", border: "1px solid var(--color-hairline)",
+                color: "var(--color-on-dark)", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "background 0s"
+              }}
+              title="Center to current location"
+            >
+              <Navigation size={18} />
+            </button>
+
+            <button
               onClick={() => setShowMapSwitcher(!showMapSwitcher)}
               style={{
                 width: "36px", height: "36px", borderRadius: "var(--rounded-md)",
@@ -223,19 +236,6 @@ export default function PublicMapPage() {
                 </button>
               </div>
             )}
-            
-            <button
-              onClick={handleLocateMe}
-              style={{
-                width: "36px", height: "36px", borderRadius: "var(--rounded-md)",
-                background: "var(--color-surface-card)", border: "1px solid var(--color-hairline)",
-                color: "var(--color-on-dark)", display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", transition: "background 0s"
-              }}
-              title="Center to current location"
-            >
-              <Navigation size={18} />
-            </button>
           </div>
 
           {/* Loading spinner */}
@@ -447,9 +447,9 @@ export default function PublicMapPage() {
 
           {/* ── Info legend (bottom-left) ── */}
           <div
-            className="map-legend"
             style={{
               position: "absolute",
+              bottom: "5.5rem",
               left: "14px",
               zIndex: 500,
               background: "var(--color-surface-card)",

@@ -481,12 +481,3 @@ button, a, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Responsive Map Legend ── */
-.map-legend {
-  bottom: 5.5rem !important;
-}
-@media (min-width: 640px) {
-  .map-legend {
-    bottom: 1.75rem !important;
-  }
-}

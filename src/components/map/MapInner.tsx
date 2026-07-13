@@ -122,10 +122,9 @@ export default function MapInner({
     >
       {mapType === "dark" && (
         <TileLayer
-          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          attribution='&copy; Google Maps'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={20}
-          className="map-tiles-premium-dark"
         />
       )}
       {mapType === "light" && (
