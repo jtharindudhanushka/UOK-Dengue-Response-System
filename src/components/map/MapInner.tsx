@@ -10,6 +10,7 @@ import {
   Marker,
   useMapEvents,
   useMap,
+  ZoomControl,
 } from "react-leaflet";
 import L from "leaflet";
 import { UOK_CENTER, UOK_DEFAULT_ZOOM } from "./DengueMap";
@@ -117,9 +118,10 @@ export default function MapInner({
       center={UOK_CENTER}
       zoom={UOK_DEFAULT_ZOOM}
       style={{ width: "100%", height: "100%" }}
-      zoomControl={true}
+      zoomControl={false}
       attributionControl={false}
     >
+      <ZoomControl position="bottomleft" />
       {mapType === "dark" && (
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"

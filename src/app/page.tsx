@@ -164,7 +164,7 @@ export default function PublicMapPage() {
     >
       <Header />
 
-      <div style={{ flex: 1, paddingTop: "60px", position: "relative", overflow: "hidden" }}>
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
 
         {/* ── Full-bleed map ── */}
         <div id="map-container" style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -445,12 +445,12 @@ export default function PublicMapPage() {
             </>
           )}
 
-          {/* ── Info legend (bottom-left) ── */}
+          {/* ── Info legend (Top Right, below active location pill) ── */}
           <div
             style={{
               position: "absolute",
-              bottom: "5.5rem",
-              left: "14px",
+              top: userLocation ? "60px" : "14px",
+              right: "14px",
               zIndex: 500,
               background: "var(--color-surface-card)",
               border: "1px solid var(--color-hairline)",

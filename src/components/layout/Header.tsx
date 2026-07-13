@@ -14,17 +14,19 @@ export default function Header() {
       id="main-header"
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
+        top: "16px",
+        left: "16px",
         zIndex: 900,
-        background: "var(--color-canvas)",
-        borderBottom: "1px solid var(--color-hairline)",
-        padding: "0 24px",
-        height: "64px",
-        display: "flex",
+        background: "var(--color-surface-card)",
+        border: "1px solid var(--color-hairline)",
+        borderRadius: "var(--rounded-pill)",
+        padding: "0 20px",
+        height: "56px",
+        display: "inline-flex",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: "24px",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
       }}
     >
       {/* Brand */}
@@ -41,15 +43,16 @@ export default function Header() {
       >
         <div
           style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "var(--rounded-md)",
+            width: "36px",
+            height: "36px",
+            borderRadius: "50%",
             background: "#ffffff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            overflow: "hidden"
+            overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
           }}
         >
           <Image
@@ -65,10 +68,10 @@ export default function Header() {
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <span
             style={{
-              fontWeight: 700,
-              fontSize: "14px",
+              fontWeight: 800,
+              fontSize: "15px",
               color: "var(--color-on-dark)",
-              letterSpacing: "-0.5px",
+              letterSpacing: "-0.3px",
               lineHeight: 1,
             }}
           >
