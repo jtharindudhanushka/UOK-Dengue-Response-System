@@ -202,6 +202,14 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
     );
   }
 
+  const progressMap: Record<Step, number> = {
+    location: 25,
+    category: 50,
+    photo: 75,
+    submit: 100,
+  };
+  const progress = progressMap[step];
+
   return (
     <div id="report-form" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <div style={{ height: "4px", background: "var(--color-hairline)", borderRadius: "2px", overflow: "hidden" }}>
