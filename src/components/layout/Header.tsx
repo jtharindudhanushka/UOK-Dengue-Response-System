@@ -19,7 +19,7 @@ export default function Header() {
         zIndex: 900,
         background: "var(--color-surface-card)",
         border: "1px solid var(--color-hairline)",
-        borderRadius: "var(--rounded-pill)",
+        borderRadius: "var(--rounded-lg)",
         padding: "0 20px",
         height: "56px",
         display: "inline-flex",

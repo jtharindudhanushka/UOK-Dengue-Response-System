@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: clusters, error } = await supabase
-      .from("clusters")
+      .from("api_clusters_view")
       .select("*")
       .eq("institution_id", institution.id)
       .order("risk_score", { ascending: false });

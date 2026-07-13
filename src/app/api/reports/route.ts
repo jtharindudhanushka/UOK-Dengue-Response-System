@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: reports, error } = await supabase
-      .from("reports")
+      .from("api_reports_view")
       .select(
         "id, location_obfuscated, category, status, cluster_id, created_at"
       )
