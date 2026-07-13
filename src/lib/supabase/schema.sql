@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS reports (
   ) STORED,
   category              report_category NOT NULL,
   description           TEXT,
-  photo_url             TEXT,                    -- Before photo
+  photo_url             TEXT,                    -- Before photo 1
+  photo2_url            TEXT,                    -- Before photo 2
   after_photo_url       TEXT,                    -- After / resolution photo
   status                report_status NOT NULL DEFAULT 'reported',
   cleaned_by_student    BOOLEAN NOT NULL DEFAULT FALSE,

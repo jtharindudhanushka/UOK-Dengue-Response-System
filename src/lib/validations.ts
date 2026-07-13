@@ -43,6 +43,11 @@ export const ReportSchema = z.object({
     .url("Invalid photo URL")
     .optional()
     .nullable(),
+  photo2_url: z
+    .string()
+    .url("Invalid photo URL")
+    .optional()
+    .nullable(),
   cleaned_by_student: z.boolean().default(false),
   device_id: deviceIdSchema,
   institution_slug: z.string().min(1).default("uok"),

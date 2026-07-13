@@ -70,6 +70,16 @@ function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lng: numbe
   return null;
 }
 
+function MapMoveHandler({ onCenterChange }: { onCenterChange?: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    move() {
+      const center = map.getCenter();
+      onCenterChange?.(center.lat, center.lng);
+    },
+  });
+  return null;
+}
+
 interface MapInnerProps {
   clusters: ClusterData[];
   reports: Array<{
@@ -80,6 +90,7 @@ interface MapInnerProps {
     cluster_id: number | null;
   }>;
   onMapClick?: (lat: number, lng: number) => void;
+  onCenterChange?: (lat: number, lng: number) => void;
   selectedPin?: [number, number] | null;
   userLocation?: [number, number] | null;
   interactive?: boolean;
@@ -91,6 +102,7 @@ export default function MapInner({
   clusters,
   reports,
   onMapClick,
+  onCenterChange,
   selectedPin,
   userLocation,
   interactive = true,
@@ -133,7 +145,8 @@ export default function MapInner({
       {/* Safe dynamic repositioning — does NOT touch MapContainer props */}
       <MapViewController userLocation={userLocation} />
 
-      {interactive && <MapClickHandler onMapClick={onMapClick} />}
+      {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
+      {onCenterChange && <MapMoveHandler onCenterChange={onCenterChange} />}
 
       {/* ── User GPS dot + pulse ring ── */}
       {userLocation && (

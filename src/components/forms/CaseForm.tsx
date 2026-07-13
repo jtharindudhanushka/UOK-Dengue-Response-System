@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertTriangle, MapPin, CheckSquare, Square } from "lucide-react";
+import { AlertTriangle, MapPin, CheckSquare, Square, CheckCircle2 } from "lucide-react";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 interface CaseFormProps {
@@ -13,10 +13,7 @@ interface CaseFormProps {
 }
 
 export default function CaseForm({ deviceId, userLocation, selectedPin, onSuccess, onClose }: CaseFormProps) {
-  const [locating, setLocating] = useState(false);
-  const [location, setLocation] = useState<[number, number] | null>(userLocation ?? null);
-
-  // Strict fields
+  const [location, setLocation] = useState<[number, number] | null>(selectedPin ?? userLocation ?? null);
   const [studentName, setStudentName] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
   const [contactNumber, setContactNumber] = useState("");
@@ -31,31 +28,12 @@ export default function CaseForm({ deviceId, userLocation, selectedPin, onSucces
   // Use test site key for development if real one is not available
   const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
-  // Auto-populate location from parent GPS context or map tap
+  // Auto-populate from map tap/pin mode
   useEffect(() => {
     if (selectedPin) {
       setLocation(selectedPin);
-    } else if (userLocation && !location) {
-      setLocation(userLocation);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, selectedPin]);
-
-  const getLocation = () => {
-    setLocating(true);
-    setError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation([pos.coords.latitude, pos.coords.longitude]);
-        setLocating(false);
-      },
-      () => {
-        setError("Could not get your location.");
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  };
+  }, [selectedPin]);
 
   const validate = () => {
     if (!studentName || studentName.length < 2) return "Student name must be at least 2 characters.";
@@ -193,31 +171,8 @@ export default function CaseForm({ deviceId, userLocation, selectedPin, onSucces
           />
         </div>
 
-        {/* Location */}
-        {!location ? (
-          <div style={{
-            background: "var(--color-surface-card)",
-            border: "1px dashed var(--color-hairline-strong)",
-            borderRadius: "var(--rounded-lg)",
-            padding: "1rem",
-            textAlign: "center",
-            marginTop: "0.5rem"
-          }}>
-            <MapPin size={24} color="var(--color-primary)" style={{ margin: "0 auto 8px" }} />
-            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-primary)", marginBottom: "4px" }}>Location Required</div>
-            <div style={{ fontSize: "13px", color: "var(--color-muted)", lineHeight: 1.5 }}>
-              Tap on the map above to select the exact location.
-            </div>
-            <button
-              className="btn btn-secondary"
-              onClick={getLocation}
-              disabled={locating}
-              style={{ marginTop: "0.75rem", width: "100%", fontSize: "0.8125rem" }}
-            >
-              {locating ? "Getting location…" : "Or use my current GPS location"}
-            </button>
-          </div>
-        ) : (
+        {/* Location (always pinned via map now) */}
+        {location && (
           <div
             style={{
               background: "var(--color-surface-card)",
@@ -227,9 +182,12 @@ export default function CaseForm({ deviceId, userLocation, selectedPin, onSucces
               fontSize: "13px",
               color: "var(--color-accent-emerald)",
               marginTop: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
             }}
           >
-            ✓ Location securely captured
+            <CheckCircle2 size={16} /> Location securely pinned
           </div>
         )}
 

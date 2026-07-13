@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
         category: data.category,
         description: data.description,
         photo_url: data.photo_url,
+        photo2_url: data.photo2_url,
         status: initialStatus,
         cleaned_by_student: data.cleaned_by_student,
         device_id: data.device_id,

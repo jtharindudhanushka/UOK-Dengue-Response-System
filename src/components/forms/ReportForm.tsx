@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import {
-  MapPin, Upload, CheckCircle2, AlertCircle, X,
+  MapPin, Upload, CheckCircle2, AlertCircle, X, Plus,
   Trash2, Droplets, FlaskConical, Flower2, AlertTriangle,
   Boxes, HelpCircle,
 } from "lucide-react";
@@ -27,17 +27,16 @@ interface ReportFormProps {
   onClose: () => void;
 }
 
-type Step = "location" | "category" | "photo" | "submit";
+type Step = "category" | "photo" | "submit";
 
 export default function ReportForm({ deviceId, userLocation, selectedPin, onSuccess, onClose }: ReportFormProps) {
-  const [step, setStep] = useState<Step>("location");
+  const [step, setStep] = useState<Step>("category");
   const [selectedLocation, setSelectedLocation] = useState<[number, number] | null>(userLocation ?? null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [description, setDescription] = useState("");
   const [selfCleaned, setSelfCleaned] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,71 +55,69 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
   }, [userLocation, selectedPin]);
 
 
-  // ── Get current GPS location ──────────────────────────────
-  const getCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setSelectedLocation([pos.coords.latitude, pos.coords.longitude]);
-        setStep("category");
-        setError(null);
-      },
-      () => {
-        setError("Could not get your location. Please tap a spot on the map instead.");
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  }, []);
+
 
   // ── Photo handling ────────────────────────────────────────
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
 
-    const validation = validateImageFile(file);
-    if (!validation.ok) {
-      setError(validation.error);
+    if (photoFiles.length + files.length > 2) {
+      setError("You can only upload up to 2 photos.");
       return;
     }
 
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setError(null);
-  }, []);
+    for (const file of files) {
+      const validation = validateImageFile(file);
+      if (!validation.ok) {
+        setError(validation.error);
+        return;
+      }
+    }
 
-  const uploadPhoto = useCallback(async (): Promise<string | null> => {
-    if (!photoFile) return null;
+    setPhotoFiles(prev => [...prev, ...files].slice(0, 2));
+    setPhotoPreviews(prev => [
+      ...prev,
+      ...files.map(f => URL.createObjectURL(f))
+    ].slice(0, 2));
+    setError(null);
+  }, [photoFiles]);
+
+  const uploadPhotos = useCallback(async (): Promise<string[]> => {
+    if (photoFiles.length === 0) return [];
     setUploading(true);
 
+    const urls: string[] = [];
+
     try {
-      const ext = photoFile.name.split(".").pop() ?? "jpg";
-      const filename = `${deviceId}-${Date.now()}.${ext}`;
+      for (const file of photoFiles) {
+        const ext = file.name.split(".").pop() ?? "jpg";
+        const filename = `${deviceId}-${crypto.randomUUID()}.${ext}`;
 
-      const { data, error } = await supabase.storage
-        .from("report-photos")
-        .upload(`before/${filename}`, photoFile, {
-          contentType: photoFile.type,
-          upsert: false,
-        });
+        const { data, error } = await supabase.storage
+          .from("report-photos")
+          .upload(`before/${filename}`, file, {
+            contentType: file.type,
+            upsert: false,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const { data: urlData } = supabase.storage
-        .from("report-photos")
-        .getPublicUrl(data.path);
+        const { data: urlData } = supabase.storage
+          .from("report-photos")
+          .getPublicUrl(data.path);
 
-      return urlData.publicUrl;
+        urls.push(urlData.publicUrl);
+      }
+      return urls;
     } catch (err) {
       console.error("Photo upload error:", err);
       setError("Failed to upload photo. Please try again.");
-      return null;
+      return [];
     } finally {
       setUploading(false);
     }
-  }, [photoFile, deviceId, supabase]);
+  }, [photoFiles, deviceId, supabase]);
 
   // ── Submit ────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
@@ -131,12 +128,12 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
 
     try {
       // Upload photo if provided
-      let uploadedUrl: string | null = null;
-      if (photoFile) {
-        uploadedUrl = await uploadPhoto();
-        if (!uploadedUrl && photoFile) {
+      let uploadedUrls: string[] = [];
+      if (photoFiles.length > 0) {
+        uploadedUrls = await uploadPhotos();
+        if (uploadedUrls.length !== photoFiles.length) {
           setSubmitting(false);
-          return; // Error already set by uploadPhoto
+          return;
         }
       }
 
@@ -151,7 +148,8 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
           longitude: selectedLocation[1],
           category: selectedCategory,
           description: description || null,
-          photo_url: uploadedUrl,
+          photo_url: uploadedUrls[0] || null,
+          photo2_url: uploadedUrls[1] || null,
           cleaned_by_student: selfCleaned,
           device_id: deviceId,
           institution_slug: "uok",
@@ -177,7 +175,7 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
     } finally {
       setSubmitting(false);
     }
-  }, [selectedLocation, selectedCategory, description, selfCleaned, photoFile, deviceId, uploadPhoto, onSuccess]);
+  }, [selectedLocation, selectedCategory, description, selfCleaned, photoFiles, deviceId, uploadPhotos, onSuccess]);
 
   // ── Success screen ───────────────────────────────────
   if (success) {
@@ -203,9 +201,8 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
   }
 
   const progressMap: Record<Step, number> = {
-    location: 25,
-    category: 50,
-    photo: 75,
+    category: 33,
+    photo: 66,
     submit: 100,
   };
   const progress = progressMap[step];
@@ -240,58 +237,6 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
         </div>
       )}
 
-      {step === "location" && (
-        <div style={{ marginTop: "1rem" }}>
-          {!selectedLocation ? (
-            <div style={{
-              background: "var(--color-surface-card)",
-              border: "1px dashed var(--color-hairline-strong)",
-              borderRadius: "var(--rounded-lg)",
-              padding: "1rem",
-              textAlign: "center",
-              marginTop: "0.5rem"
-            }}>
-              <MapPin size={24} color="var(--color-primary)" style={{ margin: "0 auto 8px" }} />
-              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-primary)", marginBottom: "4px" }}>Location Required</div>
-              <div style={{ fontSize: "13px", color: "var(--color-muted)" }}>
-                Tap on the map above to select the exact location.
-              </div>
-              <button
-                className="btn btn-secondary"
-                onClick={getCurrentLocation}
-                style={{ marginTop: "0.75rem", width: "100%", fontSize: "0.8125rem" }}
-              >
-                Or use my current GPS location
-              </button>
-            </div>
-          ) : (
-            <div
-              style={{
-                background: "var(--color-surface-card)",
-                border: "1px solid var(--color-hairline)",
-                borderRadius: "var(--rounded-lg)",
-                padding: "16px",
-                fontSize: "13px",
-                color: "var(--color-accent-emerald)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              Location pinned. Tap "Continue" to proceed.
-            </div>
-          )}
-          {selectedLocation && (
-            <button
-              id="report-location-continue-btn"
-              className="btn btn-primary"
-              onClick={() => setStep("category")}
-            >
-              Continue →
-            </button>
-          )}
-        </div>
-      )}
 
       {/* ── Step: Category ── */}
       {step === "category" && (
@@ -386,37 +331,72 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
             A photo helps the response team prioritize. Max 5MB, JPEG/PNG/WebP.
           </p>
 
-          {photoPreview ? (
-            <div style={{ position: "relative" }}>
-              <img
-                src={photoPreview}
-                alt="Preview"
-                style={{
-                  width: "100%",
-                  maxHeight: "200px",
-                  objectFit: "cover",
-                  borderRadius: "var(--radius-sm)",
-                }}
-              />
-              <button
-                onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                style={{
-                  position: "absolute",
-                  top: "0.5rem",
-                  right: "0.5rem",
-                  background: "rgba(0,0,0,0.7)",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: "28px",
-                  height: "28px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <X size={14} color="#f8fafc" />
-              </button>
+          {photoPreviews.length > 0 ? (
+            <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "8px" }}>
+              {photoPreviews.map((preview, i) => (
+                <div key={i} style={{ position: "relative", minWidth: "150px" }}>
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    style={{
+                      width: "100%",
+                      height: "150px",
+                      objectFit: "cover",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      setPhotoFiles(prev => prev.filter((_, idx) => idx !== i));
+                      setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i));
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: "0.5rem",
+                      right: "0.5rem",
+                      background: "rgba(0,0,0,0.7)",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: "28px",
+                      height: "28px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X size={14} color="#f8fafc" />
+                  </button>
+                </div>
+              ))}
+              {photoPreviews.length < 2 && (
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: "150px",
+                    height: "150px",
+                    background: "var(--color-surface-card)",
+                    border: "2px dashed var(--color-hairline-strong)",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={24} color="var(--color-muted)" />
+                  <span style={{ fontSize: "12px", color: "var(--color-muted)", marginTop: "8px" }}>
+                    Add Photo
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    multiple
+                    onChange={handlePhotoChange}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              )}
             </div>
           ) : (
             <label
@@ -440,6 +420,7 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/heic"
+                multiple
                 onChange={handlePhotoChange}
                 style={{ display: "none" }}
               />
@@ -486,6 +467,201 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
               <span style={{ fontSize: "14px", fontWeight: 600 }}>{selfCleaned ? "Yes" : "No"}</span>
             </div>
           </div>
+          <label
+            id="report-self-cleaned-toggle"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              padding: "12px",
+              background: "var(--color-surface-elevated)",
+              border: "1px solid var(--color-hairline)",
+              borderRadius: "var(--rounded-md)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              className="custom-checkbox"
+              checked={selfCleaned}
+              onChange={(e) => setSelfCleaned(e.target.checked)}
+            />
+            <div>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-on-dark)", marginBottom: "2px" }}>
+                I already cleaned this site
+              </div>
+              <div style={{ fontSize: "13px", color: "var(--color-muted)" }}>
+                The report may still be verified if in a high-risk area
+              </div>
+            </div>
+          </label>
+
+          <div className="form-group">
+            <label className="form-label">Notes (optional)</label>
+            <textarea
+              className="form-textarea"
+              placeholder="Any additional details about the site…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={500}
+              rows={2}
+            />
+          </div>
+
+          <button
+            id="report-category-continue-btn"
+            className="btn btn-primary"
+            disabled={!selectedCategory}
+            onClick={() => setStep("photo")}
+          >
+            Continue →
+          </button>
+        </div>
+      )}
+
+      {/* ── Step: Photo ── */}
+      {step === "photo" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <p style={{ margin: 0 }}>
+            A photo helps the response team prioritize. Max 5MB, JPEG/PNG/WebP.
+          </p>
+
+          {photoPreviews.length > 0 ? (
+            <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "8px" }}>
+              {photoPreviews.map((preview, i) => (
+                <div key={i} style={{ position: "relative", minWidth: "150px" }}>
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    style={{
+                      width: "100%",
+                      height: "150px",
+                      objectFit: "cover",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      setPhotoFiles(prev => prev.filter((_, idx) => idx !== i));
+                      setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i));
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: "0.5rem",
+                      right: "0.5rem",
+                      background: "rgba(0,0,0,0.7)",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: "28px",
+                      height: "28px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X size={14} color="#f8fafc" />
+                  </button>
+                </div>
+              ))}
+              {photoPreviews.length < 2 && (
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: "150px",
+                    height: "150px",
+                    background: "var(--color-surface-card)",
+                    border: "2px dashed var(--color-hairline-strong)",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={24} color="var(--color-muted)" />
+                  <span style={{ fontSize: "12px", color: "var(--color-muted)", marginTop: "8px" }}>
+                    Add Photo
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    multiple
+                    onChange={handlePhotoChange}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              )}
+            </div>
+          ) : (
+            <label
+              id="report-photo-upload"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "2rem 1rem",
+                background: "var(--color-surface-card)",
+                border: "2px dashed var(--color-hairline-strong)",
+                borderRadius: "var(--rounded-lg)",
+                cursor: "pointer",
+              }}
+            >
+              <Upload size={24} color="var(--color-muted)" />
+              <span style={{ fontSize: "14px", color: "var(--color-muted)" }}>
+                Tap to upload photo
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic"
+                multiple
+                onChange={handlePhotoChange}
+                style={{ display: "none" }}
+              />
+            </label>
+          )}
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => setStep("submit")}
+            >
+              Skip
+            </button>
+            <button
+              id="report-photo-continue-btn"
+              className="btn btn-primary"
+              style={{ flex: 2 }}
+              disabled={uploading}
+              onClick={() => setStep("submit")}
+            >
+              {uploading ? "Uploading…" : "Continue →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step: Submit ── */}
+      {step === "submit" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div className="card-elevated" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Category</span>
+              <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                {CATEGORIES.find((c) => c.value === selectedCategory)?.label ?? selectedCategory}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Photo</span>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: photoFiles.length > 0 ? "var(--color-accent-emerald)" : "var(--color-on-dark)" }}>{photoFiles.length > 0 ? "✓ Attached" : "Not provided"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Self-cleaned</span>
+              <span style={{ fontSize: "14px", fontWeight: 600 }}>{selfCleaned ? "Yes" : "No"}</span>
+            </div>
+          </div>
 
           <p style={{ margin: 0, fontSize: "0.8125rem" }}>
             Your exact location is never shown publicly. Pins are offset to protect your privacy.
@@ -495,10 +671,10 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
             id="report-submit-btn"
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={!selectedCategory || uploading || submitting}
             style={{ width: "100%" }}
           >
-            {submitting ? "Submitting…" : "Submit report"}
+            {uploading || submitting ? "Submitting…" : `Submit Report (${photoFiles.length} photo${photoFiles.length !== 1 ? 's' : ''})`}
           </button>
         </div>
       )}

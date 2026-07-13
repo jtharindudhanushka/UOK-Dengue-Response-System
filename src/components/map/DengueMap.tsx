@@ -19,6 +19,7 @@ interface DengueMapProps {
     cluster_id: number | null;
   }>;
   onMapClick?: (lat: number, lng: number) => void;
+  onCenterChange?: (lat: number, lng: number) => void;
   selectedPin?: [number, number] | null;
   userLocation?: [number, number] | null;
   interactive?: boolean;

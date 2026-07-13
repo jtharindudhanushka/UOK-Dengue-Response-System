@@ -7,8 +7,9 @@ import Footer from "@/components/layout/Footer";
 import ReportForm from "@/components/forms/ReportForm";
 import CaseForm from "@/components/forms/CaseForm";
 import {
-  AlertTriangle, Plus, X, CheckCircle2, Crosshair, Info, Map, Layers,
+  AlertTriangle, Plus, X, CheckCircle2, Crosshair, Info, Map, Layers, MapPin
 } from "lucide-react";
+import { UOK_CENTER } from "@/components/map/DengueMap";
 import type { ClusterData } from "@/lib/risk-engine";
 
 const DengueMap = dynamic(() => import("@/components/map/DengueMap"), { ssr: false });
@@ -45,6 +46,8 @@ export default function PublicMapPage() {
   const [volunteering, setVolunteering] = useState<string | null>(null); // report id being volunteered
   const [mapType, setMapType]         = useState<"dark" | "satellite" | "light">("dark");
   const [showMapSwitcher, setShowMapSwitcher] = useState(false);
+  const [pickingLocationFor, setPickingLocationFor] = useState<SheetMode>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
 
   useEffect(() => { setDeviceId(getOrCreateDeviceId()); }, []);
 
@@ -153,6 +156,7 @@ export default function PublicMapPage() {
               clusters={clusters}
               reports={reports}
               onMapClick={handleMapClick}
+              onCenterChange={(lat, lng) => setMapCenter([lat, lng])}
               selectedPin={selectedPin}
               userLocation={userLocation}
               interactive={true}
@@ -311,49 +315,110 @@ export default function PublicMapPage() {
             </div>
           )}
 
-          {/* ── Floating action buttons ── */}
-          <div
-            id="map-fab-container"
-            style={{
-              position: "absolute",
-              bottom: "1.75rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 500,
-              display: "flex",
-              gap: "0.75rem",
-              justifyContent: "center",
-            }}
-          >
-            <button
-              id="report-site-fab"
-              className="btn btn-primary"
-              onClick={() => setSheet("report")}
+          {/* ── Floating action buttons (hidden in pin mode) ── */}
+          {!pickingLocationFor && (
+            <div
+              id="map-fab-container"
               style={{
-                padding: "12px 24px",
-                fontSize: "15px",
-                boxShadow: "none",
+                position: "absolute",
+                bottom: "1.75rem",
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 500,
+                display: "flex",
+                gap: "0.75rem",
+                justifyContent: "center",
               }}
             >
-              <Plus size={18} strokeWidth={2.5} />
-              Report a site
-            </button>
-            <button
-              id="report-case-fab"
-              className="btn btn-secondary"
-              onClick={() => setSheet("case")}
-              style={{ boxShadow: "none" }}
-            >
-              <AlertTriangle size={15} />
-              Report case
-            </button>
-          </div>
+              <button
+                id="report-site-fab"
+                className="btn btn-primary"
+                onClick={() => setPickingLocationFor("report")}
+                style={{ padding: "12px 24px", fontSize: "15px", boxShadow: "none" }}
+              >
+                <Plus size={18} strokeWidth={2.5} />
+                Report a site
+              </button>
+              <button
+                id="report-case-fab"
+                className="btn btn-secondary"
+                onClick={() => setPickingLocationFor("case")}
+                style={{ boxShadow: "none" }}
+              >
+                <AlertTriangle size={15} />
+                Report case
+              </button>
+            </div>
+          )}
+
+          {/* ── Pin Mode Overlay ── */}
+          {pickingLocationFor && (
+            <>
+              {/* Center Targeting Pin */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -100%)",
+                  zIndex: 1000,
+                  pointerEvents: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                <MapPin size={42} color="var(--color-primary)" fill="rgba(224, 255, 33, 0.2)" strokeWidth={2} />
+                <div style={{ width: "6px", height: "6px", background: "var(--color-primary)", borderRadius: "50%", marginTop: "-2px" }} />
+              </div>
+
+              {/* Confirm Bottom Bar */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "1.75rem",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 1000,
+                  width: "90%",
+                  maxWidth: "400px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
+              >
+                <div style={{ textAlign: "center", background: "rgba(10,10,10,0.8)", backdropFilter: "blur(4px)", padding: "8px 16px", borderRadius: "100px", color: "white", fontSize: "14px", alignSelf: "center", border: "1px solid var(--color-hairline)" }}>
+                  Drag map to pinpoint location
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setPickingLocationFor(null)}
+                    style={{ flex: 1, padding: "12px" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setSelectedPin(mapCenter || userLocation || UOK_CENTER);
+                      setSheet(pickingLocationFor);
+                      setPickingLocationFor(null);
+                    }}
+                    style={{ flex: 2, padding: "12px" }}
+                  >
+                    Confirm Location
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* ── Info legend (bottom-left) ── */}
           <div
+            className="map-legend"
             style={{
               position: "absolute",
-              bottom: "1.75rem",
               left: "14px",
               zIndex: 500,
               background: "var(--color-surface-card)",
