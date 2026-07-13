@@ -7,7 +7,7 @@ import Footer from "@/components/layout/Footer";
 import ReportForm from "@/components/forms/ReportForm";
 import CaseForm from "@/components/forms/CaseForm";
 import {
-  AlertTriangle, Plus, X, CheckCircle2, Crosshair, Info, Map, Layers, MapPin
+  AlertTriangle, Plus, X, CheckCircle2, Crosshair, Info, Map, Layers, MapPin, Navigation
 } from "lucide-react";
 import { UOK_CENTER } from "@/components/map/DengueMap";
 import type { ClusterData } from "@/lib/risk-engine";
@@ -47,6 +47,7 @@ export default function PublicMapPage() {
   const [mapType, setMapType]         = useState<"dark" | "satellite" | "light">("dark");
   const [showMapSwitcher, setShowMapSwitcher] = useState(false);
   const [pickingLocationFor, setPickingLocationFor] = useState<SheetMode>(null);
+  const [centerTrigger, setCenterTrigger] = useState(0);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
 
   useEffect(() => { setDeviceId(getOrCreateDeviceId()); }, []);
@@ -64,6 +65,22 @@ export default function PublicMapPage() {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   }, []);
+
+  const handleLocateMe = useCallback(() => {
+    if (userLocation) {
+      setCenterTrigger(prev => prev + 1);
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setCenterTrigger(prev => prev + 1);
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  }, [userLocation]);
 
   const addToast = useCallback((message: string, type: ToastType = "info") => {
     const id = toastCounter + 1;
@@ -159,6 +176,7 @@ export default function PublicMapPage() {
               onCenterChange={(lat, lng) => setMapCenter([lat, lng])}
               selectedPin={selectedPin}
               userLocation={userLocation}
+              centerTrigger={centerTrigger}
               interactive={true}
               onVolunteerClean={handleVolunteerClean}
               mapType={mapType}
@@ -205,6 +223,19 @@ export default function PublicMapPage() {
                 </button>
               </div>
             )}
+            
+            <button
+              onClick={handleLocateMe}
+              style={{
+                width: "36px", height: "36px", borderRadius: "var(--rounded-md)",
+                background: "var(--color-surface-card)", border: "1px solid var(--color-hairline)",
+                color: "var(--color-on-dark)", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "background 0s"
+              }}
+              title="Center to current location"
+            >
+              <Navigation size={18} />
+            </button>
           </div>
 
           {/* Loading spinner */}

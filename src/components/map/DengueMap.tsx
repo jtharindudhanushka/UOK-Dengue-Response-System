@@ -22,6 +22,7 @@ interface DengueMapProps {
   onCenterChange?: (lat: number, lng: number) => void;
   selectedPin?: [number, number] | null;
   userLocation?: [number, number] | null;
+  centerTrigger?: number;
   interactive?: boolean;
   onVolunteerClean?: (reportId: string) => void;
   mapType?: "dark" | "satellite" | "light";

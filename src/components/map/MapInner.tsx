@@ -48,16 +48,15 @@ const STATUS_COLORS: Record<string, string> = {
 // Use this child component with useMap() to imperatively pan/fly.
 // Changing center on MapContainer directly causes _leaflet_pos crash.
 // ──────────────────────────────────────────────────────────────────────
-function MapViewController({ userLocation }: { userLocation?: [number, number] | null }) {
+function MapViewController({ userLocation, centerTrigger }: { userLocation?: [number, number] | null; centerTrigger?: number }) {
   const map = useMap();
   useEffect(() => {
     if (userLocation) {
       // flyTo keeps Leaflet's internal state consistent — avoids the crash
       map.flyTo(userLocation, UOK_DEFAULT_ZOOM, { animate: true, duration: 1.2 });
     }
-  // Only fly when userLocation first becomes available
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation?.[0], userLocation?.[1]]);
+  }, [userLocation?.[0], userLocation?.[1], centerTrigger]);
   return null;
 }
 
@@ -93,6 +92,7 @@ interface MapInnerProps {
   onCenterChange?: (lat: number, lng: number) => void;
   selectedPin?: [number, number] | null;
   userLocation?: [number, number] | null;
+  centerTrigger?: number;
   interactive?: boolean;
   onVolunteerClean?: (reportId: string) => void;
   mapType?: "dark" | "satellite" | "light";
@@ -105,6 +105,7 @@ export default function MapInner({
   onCenterChange,
   selectedPin,
   userLocation,
+  centerTrigger,
   interactive = true,
   onVolunteerClean,
   mapType = "dark",
@@ -143,10 +144,9 @@ export default function MapInner({
       )}
 
       {/* Safe dynamic repositioning — does NOT touch MapContainer props */}
-      <MapViewController userLocation={userLocation} />
-
-      {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
-      {onCenterChange && <MapMoveHandler onCenterChange={onCenterChange} />}
+      <MapViewController userLocation={userLocation} centerTrigger={centerTrigger} />
+      <MapClickHandler onMapClick={onMapClick} />
+      <MapMoveHandler onCenterChange={onCenterChange} />
 
       {/* ── User GPS dot + pulse ring ── */}
       {userLocation && (

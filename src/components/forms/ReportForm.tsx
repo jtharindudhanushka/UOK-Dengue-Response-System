@@ -460,7 +460,7 @@ export default function ReportForm({ deviceId, userLocation, selectedPin, onSucc
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ fontSize: "12px", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Photo</span>
-              <span style={{ fontSize: "14px", fontWeight: 600, color: photoFile ? "var(--color-accent-emerald)" : "var(--color-on-dark)" }}>{photoFile ? "✓ Attached" : "Not provided"}</span>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: photoFiles.length > 0 ? "var(--color-accent-emerald)" : "var(--color-on-dark)" }}>{photoFiles.length > 0 ? "✓ Attached" : "Not provided"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ fontSize: "12px", color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "1.5px", fontWeight: 600 }}>Self-cleaned</span>
