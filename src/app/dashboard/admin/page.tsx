@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Download, Users, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import UserManagement from "@/components/dashboard/UserManagement";
 
 interface DashboardStats {
   totalReports: number;
@@ -12,7 +13,14 @@ interface DashboardStats {
   avgResolutionHours: number;
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const tab = params.tab as string | undefined;
+
   const supabase = await createServiceClient();
 
   // Verify superadmin role
@@ -92,255 +100,289 @@ export default async function AdminPage() {
         </a>
       </div>
 
-      {/* Stats grid */}
-      <div
-        id="admin-stats-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: "0.875rem",
-        }}
-      >
-        {[
-          { icon: "📍", label: "Total reports", value: stats.totalReports, color: "#94a3b8" },
-          { icon: "🔴", label: "Active sites", value: stats.activeReports, color: "#ef4444" },
-          { icon: "✅", label: "Cleaned", value: stats.cleanedReports, color: "#22c55e" },
-          { icon: "🏥", label: "Reported cases", value: stats.totalCases, color: "#a78bfa" },
-          { icon: "🗺️", label: "Active clusters", value: stats.activeClusters, color: "#f59e0b" },
-          { icon: "⚠️", label: "SLA breaches", value: stats.slaBreaches, color: "#dc2626" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-card)",
-              padding: "1rem",
-            }}
-          >
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.375rem" }}>{stat.icon}</div>
-            <div style={{ fontWeight: 700, fontSize: "1.75rem", color: stat.color, lineHeight: 1 }}>
-              {stat.value}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>
-              {stat.label}
-            </div>
-          </div>
-        ))}
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--color-border)", marginBottom: "1rem" }}>
+        <a 
+          href="/dashboard/admin" 
+          style={{ 
+            padding: "0.5rem 1rem", 
+            borderBottom: tab !== "users" ? "2px solid var(--color-primary)" : "2px solid transparent",
+            color: tab !== "users" ? "var(--color-text-primary)" : "var(--color-text-muted)",
+            fontWeight: tab !== "users" ? 600 : 400,
+            textDecoration: "none"
+          }}
+        >
+          Overview
+        </a>
+        <a 
+          href="/dashboard/admin?tab=users" 
+          style={{ 
+            padding: "0.5rem 1rem", 
+            borderBottom: tab === "users" ? "2px solid var(--color-primary)" : "2px solid transparent",
+            color: tab === "users" ? "var(--color-text-primary)" : "var(--color-text-muted)",
+            fontWeight: tab === "users" ? 600 : 400,
+            textDecoration: "none"
+          }}
+        >
+          User Management
+        </a>
       </div>
 
-      {/* Avg resolution */}
-      <div
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-card)",
-          padding: "1.25rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-        }}
-      >
-        <Clock size={28} color="var(--color-accent)" />
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "1.5rem" }}>
-            {stats.avgResolutionHours > 0 ? `${stats.avgResolutionHours}h` : "—"}
-          </div>
-          <div style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
-            Average resolution time (from assignment to cleaned)
-          </div>
-        </div>
-      </div>
-
-      {/* SLA Breach table */}
-      {breaches.length > 0 && (
-        <div>
-          <h2 style={{ margin: "0 0 0.875rem", fontSize: "1rem" }}>
-            ⚠️ SLA breaches ({breaches.filter((b: { is_breached: boolean }) => b.is_breached).length})
-          </h2>
+      {tab === "users" ? (
+        <UserManagement />
+      ) : (
+        <>
+          {/* Stats grid */}
           <div
+            id="admin-stats-grid"
             style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-card)",
-              overflow: "hidden",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "0.875rem",
             }}
           >
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  {["Report ID", "Cluster", "Assignee", "Hours elapsed", "SLA", "Breached"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "0.75rem 1rem",
-                        textAlign: "left",
-                        color: "var(--color-text-muted)",
-                        fontWeight: 600,
-                        fontSize: "0.75rem",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(breaches as Array<{
-                  id: string;
-                  cluster_id: number;
-                  assignee_name: string;
-                  hours_elapsed: number;
-                  sla_hours: number;
-                  is_breached: boolean;
-                }>).map((breach, i) => (
-                  <tr
-                    key={breach.id}
-                    style={{
-                      borderBottom: i < breaches.length - 1 ? "1px solid var(--color-border)" : "none",
-                      background: breach.is_breached ? "rgba(220,38,38,0.04)" : "transparent",
-                    }}
-                  >
-                    <td style={{ padding: "0.75rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                      {breach.id?.slice(0, 8)}…
-                    </td>
-                    <td style={{ padding: "0.75rem 1rem" }}>#{breach.cluster_id}</td>
-                    <td style={{ padding: "0.75rem 1rem" }}>{breach.assignee_name ?? "—"}</td>
-                    <td style={{ padding: "0.75rem 1rem" }}>{breach.hours_elapsed?.toFixed(1)}h</td>
-                    <td style={{ padding: "0.75rem 1rem" }}>{breach.sla_hours}h</td>
-                    <td style={{ padding: "0.75rem 1rem" }}>
-                      <span className={breach.is_breached ? "badge badge-critical" : "badge badge-cleaned"}>
-                        {breach.is_breached ? "BREACHED" : "OK"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Student cases feed — admin only, hidden from public */}
-      <div>
-        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>
-          🏥 Student-reported cases ({cases.length})
-        </h2>
-        <p style={{ margin: "0 0 0.875rem", fontSize: "0.8125rem" }}>
-          These are <strong style={{ color: "var(--color-text-primary)" }}>strictly private</strong> and hidden from the public map. They influence the risk engine cluster score.
-        </p>
-
-        {cases.length === 0 ? (
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-card)",
-              padding: "2rem",
-              textAlign: "center",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            No cases reported.
-          </div>
-        ) : (
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-card)",
-              overflow: "hidden",
-            }}
-          >
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  {["Case ID", "Reported at"].map((h) => (
-                    <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "left", color: "var(--color-text-muted)", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(cases as Array<{ id: string; created_at: string }>).map((c, i) => (
-                  <tr key={c.id} style={{ borderBottom: i < cases.length - 1 ? "1px solid var(--color-border)" : "none" }}>
-                    <td style={{ padding: "0.75rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                      {c.id.slice(0, 12)}…
-                    </td>
-                    <td style={{ padding: "0.75rem 1rem" }}>
-                      {new Date(c.created_at).toLocaleDateString("en-LK", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Cluster overview */}
-      <div>
-        <h2 style={{ margin: "0 0 0.875rem", fontSize: "1rem" }}>
-          🗺️ Active clusters
-        </h2>
-        {clusters.length === 0 ? (
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-card)",
-              padding: "2rem",
-              textAlign: "center",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            No active clusters.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem" }}>
-            {(clusters as Array<{
-              id: number;
-              cluster_id: number;
-              risk_level: string;
-              risk_score: number;
-              report_count: number;
-              case_count: number;
-            }>).map((c) => (
+            {[
+              { icon: "📍", label: "Total reports", value: stats.totalReports, color: "#94a3b8" },
+              { icon: "🔴", label: "Active sites", value: stats.activeReports, color: "#ef4444" },
+              { icon: "✅", label: "Cleaned", value: stats.cleanedReports, color: "#22c55e" },
+              { icon: "🏥", label: "Reported cases", value: stats.totalCases, color: "#a78bfa" },
+              { icon: "🗺️", label: "Active clusters", value: stats.activeClusters, color: "#f59e0b" },
+              { icon: "⚠️", label: "SLA breaches", value: stats.slaBreaches, color: "#dc2626" },
+            ].map((stat) => (
               <div
-                key={c.id}
+                key={stat.label}
                 style={{
-                  background: "var(--color-canvas)",
+                  background: "var(--color-surface)",
                   border: "1px solid var(--color-border)",
                   borderRadius: "var(--radius-card)",
-                  padding: "0.875rem",
-                  borderLeft: `3px solid ${
-                    c.risk_level === "critical" ? "#dc2626" :
-                    c.risk_level === "high" ? "#ef4444" :
-                    c.risk_level === "medium" ? "#f59e0b" : "#3b82f6"
-                  }`,
+                  padding: "1rem",
                 }}
               >
-                <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Cluster #{c.cluster_id}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                  {c.report_count} sites · {c.case_count} cases · Score: {c.risk_score}
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.375rem" }}>{stat.icon}</div>
+                <div style={{ fontWeight: 700, fontSize: "1.75rem", color: stat.color, lineHeight: 1 }}>
+                  {stat.value}
                 </div>
-                <span className={`badge badge-${c.risk_level}`} style={{ marginTop: "0.5rem", fontSize: "0.6875rem" }}>
-                  {c.risk_level}
-                </span>
+                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>
+                  {stat.label}
+                </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+
+          {/* Avg resolution */}
+          <div
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-card)",
+              padding: "1.25rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem",
+            }}
+          >
+            <Clock size={28} color="var(--color-accent)" />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "1.5rem" }}>
+                {stats.avgResolutionHours > 0 ? `${stats.avgResolutionHours}h` : "—"}
+              </div>
+              <div style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
+                Average resolution time (from assignment to cleaned)
+              </div>
+            </div>
+          </div>
+
+          {/* SLA Breach table */}
+          {breaches.length > 0 && (
+            <div>
+              <h2 style={{ margin: "0 0 0.875rem", fontSize: "1rem" }}>
+                ⚠️ SLA breaches ({breaches.filter((b: { is_breached: boolean }) => b.is_breached).length})
+              </h2>
+              <div
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-card)",
+                  overflow: "hidden",
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+                      {["Report ID", "Cluster", "Assignee", "Hours elapsed", "SLA", "Breached"].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "0.75rem 1rem",
+                            textAlign: "left",
+                            color: "var(--color-text-muted)",
+                            fontWeight: 600,
+                            fontSize: "0.75rem",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(breaches as Array<{
+                      id: string;
+                      cluster_id: number;
+                      assignee_name: string;
+                      hours_elapsed: number;
+                      sla_hours: number;
+                      is_breached: boolean;
+                    }>).map((breach, i) => (
+                      <tr
+                        key={breach.id}
+                        style={{
+                          borderBottom: i < breaches.length - 1 ? "1px solid var(--color-border)" : "none",
+                          background: breach.is_breached ? "rgba(220,38,38,0.04)" : "transparent",
+                        }}
+                      >
+                        <td style={{ padding: "0.75rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                          {breach.id?.slice(0, 8)}…
+                        </td>
+                        <td style={{ padding: "0.75rem 1rem" }}>#{breach.cluster_id}</td>
+                        <td style={{ padding: "0.75rem 1rem" }}>{breach.assignee_name ?? "—"}</td>
+                        <td style={{ padding: "0.75rem 1rem" }}>{breach.hours_elapsed?.toFixed(1)}h</td>
+                        <td style={{ padding: "0.75rem 1rem" }}>{breach.sla_hours}h</td>
+                        <td style={{ padding: "0.75rem 1rem" }}>
+                          <span className={breach.is_breached ? "badge badge-critical" : "badge badge-cleaned"}>
+                            {breach.is_breached ? "BREACHED" : "OK"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Student cases feed — admin only, hidden from public */}
+          <div>
+            <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>
+              🏥 Student-reported cases ({cases.length})
+            </h2>
+            <p style={{ margin: "0 0 0.875rem", fontSize: "0.8125rem" }}>
+              These are <strong style={{ color: "var(--color-text-primary)" }}>strictly private</strong> and hidden from the public map. They influence the risk engine cluster score.
+            </p>
+
+            {cases.length === 0 ? (
+              <div
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-card)",
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "var(--color-text-muted)",
+                }}
+              >
+                No cases reported.
+              </div>
+            ) : (
+              <div
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-card)",
+                  overflow: "hidden",
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+                      {["Case ID", "Reported at"].map((h) => (
+                        <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "left", color: "var(--color-text-muted)", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(cases as Array<{ id: string; created_at: string }>).map((c, i) => (
+                      <tr key={c.id} style={{ borderBottom: i < cases.length - 1 ? "1px solid var(--color-border)" : "none" }}>
+                        <td style={{ padding: "0.75rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                          {c.id.slice(0, 12)}…
+                        </td>
+                        <td style={{ padding: "0.75rem 1rem" }}>
+                          {new Date(c.created_at).toLocaleDateString("en-LK", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Cluster overview */}
+          <div>
+            <h2 style={{ margin: "0 0 0.875rem", fontSize: "1rem" }}>
+              🗺️ Active clusters
+            </h2>
+            {clusters.length === 0 ? (
+              <div
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-card)",
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "var(--color-text-muted)",
+                }}
+              >
+                No active clusters.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem" }}>
+                {(clusters as Array<{
+                  id: number;
+                  cluster_id: number;
+                  risk_level: string;
+                  risk_score: number;
+                  report_count: number;
+                  case_count: number;
+                }>).map((c) => (
+                  <div
+                    key={c.id}
+                    style={{
+                      background: "var(--color-canvas)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-card)",
+                      padding: "0.875rem",
+                      borderLeft: `3px solid ${
+                        c.risk_level === "critical" ? "#dc2626" :
+                        c.risk_level === "high" ? "#ef4444" :
+                        c.risk_level === "medium" ? "#f59e0b" : "#3b82f6"
+                      }`,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Cluster #{c.cluster_id}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                      {c.report_count} sites · {c.case_count} cases · Score: {c.risk_score}
+                    </div>
+                    <span className={`badge badge-${c.risk_level}`} style={{ marginTop: "0.5rem", fontSize: "0.6875rem" }}>
+                      {c.risk_level}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

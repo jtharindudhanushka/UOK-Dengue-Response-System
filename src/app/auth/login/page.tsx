@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Activity, Lock, Mail } from "lucide-react";
@@ -15,8 +15,15 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard/triage";
+  const urlError = searchParams.get("error");
 
   const supabase = createClient();
+
+  useEffect(() => {
+    if (urlError) {
+      setError(urlError === "auth_callback_failed" ? "Authentication failed. The link may have expired." : decodeURIComponent(urlError));
+    }
+  }, [urlError]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

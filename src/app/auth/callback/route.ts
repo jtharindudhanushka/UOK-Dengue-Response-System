@@ -6,6 +6,11 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard/triage";
 
+  const authError = searchParams.get("error_description") || searchParams.get("error");
+  if (authError) {
+    return NextResponse.redirect(`${origin}/auth/login?error=${encodeURIComponent(authError)}`);
+  }
+
   if (code) {
     const supabase = await createServiceClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
