@@ -433,3 +433,39 @@ $$ LANGUAGE plpgsql;
 -- (Optional) Insert a test superadmin profile after creating the auth user:
 -- INSERT INTO profiles (id, institution_id, role, display_name)
 -- VALUES ('<your-auth-user-uuid>', (SELECT id FROM institutions WHERE slug='uok'), 'superadmin', 'Admin');
+
+-- ── MIGRATION: Map Views and Superadmin ────────────────────────
+
+-- 1. Create a View for Reports that outputs GeoJSON for the Map
+CREATE OR REPLACE VIEW api_reports_view AS
+SELECT 
+  id, 
+  institution_id, 
+  category, 
+  status, 
+  cluster_id, 
+  created_at,
+  -- Cast PostGIS Geometry to GeoJSON automatically
+  ST_AsGeoJSON(location_obfuscated::geometry)::jsonb as location_obfuscated
+FROM reports;
+
+-- 2. Create a View for Clusters that outputs GeoJSON for the Map
+CREATE OR REPLACE VIEW api_clusters_view AS
+SELECT 
+  id, 
+  institution_id, 
+  cluster_id, 
+  report_count, 
+  case_count, 
+  risk_score, 
+  risk_level, 
+  last_updated,
+  ST_AsGeoJSON(centroid::geometry)::jsonb as centroid
+FROM clusters;
+
+-- 3. Bootstrap Superadmin Role
+-- INSTRUCTIONS TO BOOTSTRAP A SUPERADMIN:
+-- 1. Sign up on your frontend as normal (e.g., admin@uok.edu)
+-- 2. Once your user exists, come back to the SQL Editor and run this exact line, replacing the email with your actual email:
+-- UPDATE profiles SET role = 'superadmin' WHERE id = (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL@uok.edu');
+
