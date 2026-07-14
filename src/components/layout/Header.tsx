@@ -83,10 +83,18 @@ export default function Header() {
       {/* Nav */}
       <nav style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         {isDashboard && (
-          <Link href="/" id="header-map-btn" className="btn btn-ghost btn-sm" style={{ fontWeight: 500 }}>
-            <Map size={14} />
-            <span>Public Map</span>
-          </Link>
+          <>
+            <Link href="/dashboard/triage" className="btn btn-ghost btn-sm" style={{ fontWeight: 500 }}>
+              Triage
+            </Link>
+            <Link href="/dashboard/admin" className="btn btn-ghost btn-sm" style={{ fontWeight: 500 }}>
+              Admin
+            </Link>
+            <Link href="/" id="header-map-btn" className="btn btn-ghost btn-sm" style={{ fontWeight: 500 }}>
+              <Map size={14} />
+              <span>Public Map</span>
+            </Link>
+          </>
         )}
       </nav>
     </header>

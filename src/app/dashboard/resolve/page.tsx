@@ -59,6 +59,20 @@ export default function ResolvePage() {
       .then((d) => setReports(d.reports ?? []));
   };
 
+  if (!clusterId) {
+    return (
+      <div style={{ padding: "4rem 2rem", textAlign: "center" }}>
+        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>No Cluster Selected</h2>
+        <p style={{ color: "var(--color-text-muted)", marginBottom: "2rem" }}>
+          You must select a cluster from the triage dashboard to resolve reports.
+        </p>
+        <Link href="/dashboard/triage" className="btn btn-primary">
+          Back to Triage
+        </Link>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "var(--color-text-muted)" }}>
