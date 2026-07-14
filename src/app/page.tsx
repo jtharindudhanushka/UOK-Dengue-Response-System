@@ -50,7 +50,13 @@ export default function PublicMapPage() {
   const [centerTrigger, setCenterTrigger] = useState(0);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
 
-  useEffect(() => { setDeviceId(getOrCreateDeviceId()); }, []);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash.includes("type=invite")) {
+      window.location.href = "/auth/update-password" + window.location.hash;
+      return;
+    }
+    setDeviceId(getOrCreateDeviceId()); 
+  }, []);
 
   // Auto-request location on mount
   useEffect(() => {

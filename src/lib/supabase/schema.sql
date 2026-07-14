@@ -407,6 +407,28 @@ CREATE POLICY "clusters_public_read" ON clusters
 -- CREATE POLICY "photos_anon_insert" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = 'report-photos');
 -- CREATE POLICY "photos_auth_all" ON storage.objects FOR ALL TO authenticated USING (bucket_id = 'report-photos');
 
+-- ── SELF-CLEAN CLUSTER CHECK RPC ──────────────────────────────
+CREATE OR REPLACE FUNCTION check_high_risk_cluster(
+  p_lat FLOAT,
+  p_lng FLOAT,
+  p_institution_id UUID
+)
+RETURNS TABLE(risk_score NUMERIC, cluster_id INT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT c.risk_score, c.cluster_id
+  FROM clusters c
+  WHERE c.institution_id = p_institution_id
+    AND ST_DWithin(
+      c.centroid::geometry,
+      ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326),
+      400
+    )
+  ORDER BY c.risk_score DESC
+  LIMIT 1;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ── SEED: Initial data ────────────────────────────────────────
 -- (Optional) Insert a test superadmin profile after creating the auth user:
 -- INSERT INTO profiles (id, institution_id, role, display_name)

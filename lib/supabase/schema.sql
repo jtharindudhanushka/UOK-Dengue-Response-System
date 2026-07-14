@@ -48,11 +48,15 @@ INSERT INTO institutions (slug, name, map_center, map_zoom) VALUES
   ('uok', 'University of Kelaniya', ST_GeogFromText('POINT(79.9001 7.0018)'), 15)
 ON CONFLICT (slug) DO NOTHING;
 
+CREATE OR REPLACE FUNCTION get_default_institution_id() RETURNS UUID AS $$
+  SELECT id FROM institutions WHERE slug = 'uok' LIMIT 1;
+$$ LANGUAGE SQL STABLE;
+
 -- ── PROFILES TABLE ───────────────────────────────────────────
 -- Extends Supabase Auth users with roles
 CREATE TABLE IF NOT EXISTS profiles (
   id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   role           user_role NOT NULL DEFAULT 'response_team',
   display_name   TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -61,7 +65,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- ── REPORTS TABLE (Breeding Sites) ───────────────────────────
 CREATE TABLE IF NOT EXISTS reports (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  institution_id        UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id        UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   location              GEOGRAPHY(POINT, 4326) NOT NULL,
   location_obfuscated   GEOGRAPHY(POINT, 4326) GENERATED ALWAYS AS (
     -- Snap to ~100m grid for public display
@@ -74,7 +78,8 @@ CREATE TABLE IF NOT EXISTS reports (
   ) STORED,
   category              report_category NOT NULL,
   description           TEXT,
-  photo_url             TEXT,                    -- Before photo
+  photo_url             TEXT,                    -- Before photo 1
+  photo2_url            TEXT,                    -- Before photo 2
   after_photo_url       TEXT,                    -- After / resolution photo
   status                report_status NOT NULL DEFAULT 'reported',
   cleaned_by_student    BOOLEAN NOT NULL DEFAULT FALSE,
@@ -89,7 +94,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 -- Index for spatial queries
-CREATE INDEX IF NOT EXISTS reports_location_idx ON reports USING GIST (location::geometry);
+CREATE INDEX IF NOT EXISTS reports_location_idx ON reports USING GIST ((location::geometry));
 CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status);
 CREATE INDEX IF NOT EXISTS reports_cluster_idx ON reports (cluster_id);
 CREATE INDEX IF NOT EXISTS reports_institution_idx ON reports (institution_id);
@@ -97,15 +102,18 @@ CREATE INDEX IF NOT EXISTS reports_institution_idx ON reports (institution_id);
 -- ── CASES TABLE (Human Dengue Cases — restricted) ────────────
 CREATE TABLE IF NOT EXISTS cases (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT (SELECT id FROM institutions WHERE slug = 'uok'),
+  institution_id UUID NOT NULL REFERENCES institutions(id) DEFAULT get_default_institution_id(),
   location       GEOGRAPHY(POINT, 4326) NOT NULL,
-  contact_info   TEXT,                           -- optional, student-provided
+  student_name   TEXT NOT NULL,
+  student_number TEXT NOT NULL,
+  contact_number TEXT NOT NULL,
   notes          TEXT,
+  consent_given  BOOLEAN NOT NULL DEFAULT false,
   device_id      TEXT NOT NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS cases_location_idx ON cases USING GIST (location::geometry);
+CREATE INDEX IF NOT EXISTS cases_location_idx ON cases USING GIST ((location::geometry));
 
 -- ── CLUSTER CACHE TABLE ───────────────────────────────────────
 -- Stores results of ST_ClusterDBSCAN for fast reads
@@ -398,6 +406,28 @@ CREATE POLICY "clusters_public_read" ON clusters
 -- CREATE POLICY "photos_public_read" ON storage.objects FOR SELECT TO anon USING (bucket_id = 'report-photos');
 -- CREATE POLICY "photos_anon_insert" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = 'report-photos');
 -- CREATE POLICY "photos_auth_all" ON storage.objects FOR ALL TO authenticated USING (bucket_id = 'report-photos');
+
+-- ── SELF-CLEAN CLUSTER CHECK RPC ──────────────────────────────
+CREATE OR REPLACE FUNCTION check_high_risk_cluster(
+  p_lat FLOAT,
+  p_lng FLOAT,
+  p_institution_id UUID
+)
+RETURNS TABLE(risk_score NUMERIC, cluster_id INT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT c.risk_score, c.cluster_id
+  FROM clusters c
+  WHERE c.institution_id = p_institution_id
+    AND ST_DWithin(
+      c.centroid::geometry,
+      ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326),
+      400
+    )
+  ORDER BY c.risk_score DESC
+  LIMIT 1;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ── SEED: Initial data ────────────────────────────────────────
 -- (Optional) Insert a test superadmin profile after creating the auth user:
